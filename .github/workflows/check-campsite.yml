@@ -1,0 +1,50 @@
+name: Check Campsite Availability
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: "*/15 * * * *"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore cooldown state
+        uses: actions/cache@v4
+        with:
+          path: .last_notified
+          key: cooldown-${{ github.run_id }}
+          restore-keys: cooldown-
+
+      - name: Check availability
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM_NUMBER: ${{ secrets.TWILIO_FROM_NUMBER }}
+        run: node index.js
+
+      - name: Save cooldown state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .last_notified
+          key: cooldown-${{ github.run_id }}
+
+      - name: Upload screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: last-check-screenshot
+          path: screenshots/
+          retention-days: 3
+          if-no-files-found: ignore
