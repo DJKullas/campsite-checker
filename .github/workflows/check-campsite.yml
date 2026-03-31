@@ -1,8 +1,6 @@
 name: Check Campsite Availability
 
 on:
-  schedule:
-    - cron: "* * * * *"
   workflow_dispatch:
 
 jobs:
@@ -25,18 +23,11 @@ jobs:
           key: cooldown-${{ github.run_id }}
           restore-keys: cooldown-
 
-      - name: Check availability (loop every 60s for 9 minutes)
+      - name: Check availability
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-        run: |
-          for i in 1 2 3 4 5 6 7 8 9; do
-            echo "=== Run $i of 9 at $(date -u) ==="
-            node index.js || true
-            if [ "$i" -lt 9 ]; then
-              sleep 60
-            fi
-          done
+        run: node index.js
 
       - name: Save cooldown state
         if: always()
@@ -44,3 +35,11 @@ jobs:
         with:
           path: .last_notified
           key: cooldown-${{ github.run_id }}
+
+      - name: Wait 60s then trigger next run
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.WORKFLOW_PAT }}
+        run: |
+          sleep 60
+          gh workflow run check-campsite.yml --repo DJKullas/campsite-checker
