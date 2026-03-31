@@ -1,7 +1,7 @@
 # Campsite Checker - Scusset Beach
 
 Automated availability checker for **Scusset Beach State Reservation, MA**.
-Runs every minute via GitHub Actions. When an RV/TRAILER ELECTRIC site becomes available for the target dates, it sends an email alert.
+Runs every minute via GitHub Actions. When an RV/TRAILER ELECTRIC site becomes available, it emails an alert via Resend.
 
 ## Current Configuration
 
@@ -17,38 +17,29 @@ Runs every minute via GitHub Actions. When an RV/TRAILER ELECTRIC site becomes a
 
 ## Setup
 
-### 1. Gmail App Password
+### 1. Get a Resend API Key
 
-You need a Gmail account with an **App Password** (not your regular password):
+1. Go to [resend.com](https://resend.com/) and click **Sign in with GitHub**
+2. Go to [resend.com/api-keys](https://resend.com/api-keys)
+3. Click **Create API Key**, copy it
 
-1. Go to [myaccount.google.com](https://myaccount.google.com/)
-2. Security → 2-Step Verification (enable if not already)
-3. Search "App passwords" or go to Security → App passwords
-4. Create a new app password (select "Mail" / "Other")
-5. Copy the 16-character password
+### 2. Add GitHub Secret
 
-### 2. GitHub Repository Secrets
+Go to repo **Settings → Secrets and variables → Actions** and add:
 
-Go to your repo → **Settings → Secrets and variables → Actions** and add:
+| Secret Name      | Value              |
+|------------------|--------------------|
+| `RESEND_API_KEY` | Your Resend API key |
 
-| Secret Name          | Value                          |
-|----------------------|--------------------------------|
-| `GMAIL_USER`         | Your Gmail address (the sender)|
-| `GMAIL_APP_PASSWORD` | The 16-char app password       |
-
-### 3. Push and Enable
-
-Push this repo to GitHub. The workflow runs automatically every minute. You can also trigger it manually from the **Actions** tab.
+That's it. The workflow starts running automatically.
 
 ## Running Locally
 
 ```bash
-export GMAIL_USER=you@gmail.com
-export GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
-
+export RESEND_API_KEY=re_xxxxxxxxx
 npm run check
 ```
 
 ## Changing Configuration
 
-Edit the `CONFIG` object at the top of `index.js` to change dates, site type, email address, or cooldown duration.
+Edit the `CONFIG` object at the top of `index.js`.

@@ -1,5 +1,5 @@
 const puppeteer = require("puppeteer");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const fs = require("fs");
 const path = require("path");
 
@@ -29,25 +29,20 @@ function recordNotification() {
 }
 
 async function sendEmail(subject, body) {
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-
-  if (!user || !pass) {
-    throw new Error("Missing env vars: GMAIL_USER, GMAIL_APP_PASSWORD");
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing env var: RESEND_API_KEY");
   }
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass },
-  });
-
-  await transporter.sendMail({
-    from: user,
+  const resend = new Resend(apiKey);
+  const { error } = await resend.emails.send({
+    from: "Campsite Checker <onboarding@resend.dev>",
     to: CONFIG.emailTo,
     subject,
     text: body,
   });
 
+  if (error) throw new Error(`Resend error: ${error.message}`);
   console.log(`Email sent to ${CONFIG.emailTo}`);
 }
 
