@@ -16,30 +16,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Restore cooldown state
-        uses: actions/cache@v4
-        with:
-          path: .last_notified
-          key: cooldown-${{ github.run_id }}
-          restore-keys: cooldown-
-
       - name: Check availability
+        id: check
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-        run: node index.js
+        run: |
+          node index.js
+          if [ -f .availability_found ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Save cooldown state
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: .last_notified
-          key: cooldown-${{ github.run_id }}
-
-      - name: Wait 60s then trigger next run
+      - name: Schedule next run
         if: always()
         env:
           GH_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         run: |
-          sleep 60
+          if [ "${{ steps.check.outputs.found }}" = "true" ]; then
+            echo "Availability found — waiting 1 hour before next check"
+            sleep 3600
+          else
+            echo "No availability — waiting 60s before next check"
+            sleep 60
+          fi
           gh workflow run check-campsite.yml --repo DJKullas/campsite-checker

@@ -5,31 +5,11 @@ const path = require("path");
 
 const CONFIG = {
   url: "https://massdcrcamping.reserveamerica.com/camping/scusset-beach-state-reservation/r/campgroundDetails.do?contractCode=MA&parkId=32620",
-  arrivalDate: "06/10/2026",
-  lengthOfStay: "2",
+  arrivalDate: "07/29/2026",
+  lengthOfStay: "6",
   siteType: "RV/TRAILER ELECTRIC",
   emailTo: "dkoolj5@gmail.com",
-  cooldownEnabled: false,
-  cooldownMs: 60 * 60 * 1000,
 };
-
-const COOLDOWN_FILE = path.join(__dirname, ".last_notified");
-
-function shouldNotify() {
-  if (!CONFIG.cooldownEnabled) return true;
-  if (!fs.existsSync(COOLDOWN_FILE)) return true;
-  try {
-    const lastNotified = parseInt(fs.readFileSync(COOLDOWN_FILE, "utf8"), 10);
-    return Date.now() - lastNotified >= CONFIG.cooldownMs;
-  } catch {
-    return true;
-  }
-}
-
-function recordNotification() {
-  if (!CONFIG.cooldownEnabled) return;
-  fs.writeFileSync(COOLDOWN_FILE, Date.now().toString());
-}
 
 async function sendEmail(subject, body) {
   const user = process.env.GMAIL_USER;
@@ -128,17 +108,6 @@ async function checkAvailability() {
 }
 
 async function main() {
-  if (!shouldNotify()) {
-    const lastTime = parseInt(fs.readFileSync(COOLDOWN_FILE, "utf8"), 10);
-    const minsLeft = Math.ceil(
-      (CONFIG.cooldownMs - (Date.now() - lastTime)) / 60000
-    );
-    console.log(
-      `Cooldown active (${minsLeft} min remaining). Skipping check.`
-    );
-    process.exit(0);
-  }
-
   try {
     const result = await checkAvailability();
     const hasAvailability = result.typeCount > 0 || result.availableCount > 0;
@@ -157,7 +126,7 @@ async function main() {
 
       console.log("AVAILABILITY FOUND! Sending email...");
       await sendEmail(subject, body);
-      recordNotification();
+      fs.writeFileSync(path.join(__dirname, ".availability_found"), "true");
       console.log("Email sent. Done.");
     } else {
       console.log(
