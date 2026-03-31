@@ -25,15 +25,15 @@ jobs:
           key: cooldown-${{ github.run_id }}
           restore-keys: cooldown-
 
-      - name: Check availability (loop every 60s for 5 minutes)
+      - name: Check availability (loop every 60s for 9 minutes)
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: |
-          for i in 1 2 3 4 5; do
-            echo "=== Run $i of 5 at $(date -u) ==="
+          for i in 1 2 3 4 5 6 7 8 9; do
+            echo "=== Run $i of 9 at $(date -u) ==="
             node index.js || true
-            if [ "$i" -lt 5 ]; then
+            if [ "$i" -lt 9 ]; then
               sleep 60
             fi
           done
