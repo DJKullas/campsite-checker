@@ -1,5 +1,5 @@
 const puppeteer = require("puppeteer");
-const twilio = require("twilio");
+const nodemailer = require("nodemailer");
 const fs = require("fs");
 const path = require("path");
 
@@ -8,7 +8,7 @@ const CONFIG = {
   arrivalDate: "07/29/2026",
   lengthOfStay: "6",
   siteType: "RV/TRAILER ELECTRIC",
-  phoneNumber: "+17742265876",
+  emailTo: "dkoolj5@gmail.com",
   cooldownMs: 60 * 60 * 1000, // 1 hour
 };
 
@@ -28,24 +28,27 @@ function recordNotification() {
   fs.writeFileSync(COOLDOWN_FILE, Date.now().toString());
 }
 
-async function sendSms(message) {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const fromNumber = process.env.TWILIO_FROM_NUMBER;
+async function sendEmail(subject, body) {
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
 
-  if (!accountSid || !authToken || !fromNumber) {
-    throw new Error(
-      "Missing Twilio env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER"
-    );
+  if (!user || !pass) {
+    throw new Error("Missing env vars: GMAIL_USER, GMAIL_APP_PASSWORD");
   }
 
-  const client = twilio(accountSid, authToken);
-  const result = await client.messages.create({
-    body: message,
-    from: fromNumber,
-    to: CONFIG.phoneNumber,
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user, pass },
   });
-  console.log(`SMS sent successfully (SID: ${result.sid})`);
+
+  await transporter.sendMail({
+    from: user,
+    to: CONFIG.emailTo,
+    subject,
+    text: body,
+  });
+
+  console.log(`Email sent to ${CONFIG.emailTo}`);
 }
 
 async function checkAvailability() {
@@ -69,20 +72,16 @@ async function checkAvailability() {
     console.log("Navigating to campground page...");
     await page.goto(CONFIG.url, { waitUntil: "networkidle2" });
 
-    // Fill arrival date
     await page.waitForSelector("#campingDate");
     await page.click("#campingDate", { clickCount: 3 });
     await page.type("#campingDate", CONFIG.arrivalDate);
 
-    // Fill length of stay
     await page.click("#lengthOfStay", { clickCount: 3 });
     await page.type("#lengthOfStay", CONFIG.lengthOfStay);
 
-    // Click Search Available
     console.log("Submitting search...");
     await page.click("#search_avail");
 
-    // Wait for results (AJAX-based, watch for the results text to appear)
     await page.waitForFunction(
       () => {
         const text = document.body.innerText;
@@ -94,20 +93,17 @@ async function checkAvailability() {
       { timeout: 30000 }
     );
 
-    // Small extra wait for DOM to settle
     await new Promise((r) => setTimeout(r, 2000));
 
     const result = await page.evaluate((targetType) => {
       const bodyText = document.body.innerText;
 
-      // Parse "X site(s) available out of Y site(s)"
       const countMatch = bodyText.match(
         /(\d+)\s*site\(s\)\s*available\s*out\s*of\s*(\d+)/
       );
       const availableCount = countMatch ? parseInt(countMatch[1], 10) : 0;
       const totalCount = countMatch ? parseInt(countMatch[2], 10) : 0;
 
-      // Parse the specific type count, e.g. "RV/TRAILER ELECTRIC (3)"
       const typeRegex = new RegExp(
         targetType.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\((\\d+)\\)"
       );
@@ -118,23 +114,10 @@ async function checkAvailability() {
         "No suitable availability shown"
       );
 
-      return {
-        availableCount,
-        totalCount,
-        typeCount,
-        noAvailability,
-      };
+      return { availableCount, totalCount, typeCount, noAvailability };
     }, CONFIG.siteType);
 
     console.log("Results:", JSON.stringify(result, null, 2));
-
-    // Save a screenshot for debugging
-    const screenshotDir = path.join(__dirname, "screenshots");
-    if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir);
-    const screenshotPath = path.join(screenshotDir, "last_check.png");
-    await page.screenshot({ path: screenshotPath, fullPage: false });
-    console.log(`Screenshot saved: ${screenshotPath}`);
-
     return result;
   } finally {
     await browser.close();
@@ -155,21 +138,24 @@ async function main() {
 
   try {
     const result = await checkAvailability();
-
     const hasAvailability = result.typeCount > 0 || result.availableCount > 0;
 
     if (hasAvailability) {
-      const message = [
-        `CAMPSITE AVAILABLE at Scusset Beach!`,
-        `${result.typeCount} ${CONFIG.siteType} site(s) open.`,
-        `Date: Jul 29, 2026 | ${CONFIG.lengthOfStay} nights`,
-        `Book now: ${CONFIG.url}`,
+      const subject = "CAMPSITE AVAILABLE - Scusset Beach";
+      const body = [
+        `${result.typeCount} ${CONFIG.siteType} site(s) are available at Scusset Beach!`,
+        ``,
+        `Date: Jul 29, 2026`,
+        `Length of stay: ${CONFIG.lengthOfStay} nights`,
+        ``,
+        `Book now:`,
+        CONFIG.url,
       ].join("\n");
 
-      console.log("AVAILABILITY FOUND! Sending text...");
-      await sendSms(message);
+      console.log("AVAILABILITY FOUND! Sending email...");
+      await sendEmail(subject, body);
       recordNotification();
-      console.log("Text sent. Cooldown started (1 hour).");
+      console.log("Email sent. Cooldown started (1 hour).");
     } else {
       console.log(
         `No ${CONFIG.siteType} sites available. Will check again next run.`

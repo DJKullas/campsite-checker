@@ -2,9 +2,8 @@ name: Check Campsite Availability
 
 on:
   schedule:
-    # Run every 15 minutes
-    - cron: "*/15 * * * *"
-  workflow_dispatch: # Allow manual trigger
+    - cron: "* * * * *"
+  workflow_dispatch:
 
 jobs:
   check:
@@ -28,9 +27,8 @@ jobs:
 
       - name: Check availability
         env:
-          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-          TWILIO_FROM_NUMBER: ${{ secrets.TWILIO_FROM_NUMBER }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
         run: node index.js
 
       - name: Save cooldown state
@@ -39,12 +37,3 @@ jobs:
         with:
           path: .last_notified
           key: cooldown-${{ github.run_id }}
-
-      - name: Upload screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: last-check-screenshot
-          path: screenshots/
-          retention-days: 3
-          if-no-files-found: ignore

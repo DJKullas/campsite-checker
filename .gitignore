@@ -1,5 +1,4 @@
 node_modules/
 .last_notified
-screenshots/
 .env
 .DS_Store
