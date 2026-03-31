@@ -5,8 +5,8 @@ const path = require("path");
 
 const CONFIG = {
   url: "https://massdcrcamping.reserveamerica.com/camping/scusset-beach-state-reservation/r/campgroundDetails.do?contractCode=MA&parkId=32620",
-  arrivalDate: "07/29/2026",
-  lengthOfStay: "6",
+  arrivalDate: "06/10/2026",
+  lengthOfStay: "2",
   siteType: "RV/TRAILER ELECTRIC",
   emailTo: "dkoolj5@gmail.com",
   cooldownMs: 60 * 60 * 1000, // 1 hour
@@ -140,7 +140,7 @@ async function main() {
       const body = [
         `${result.typeCount} ${CONFIG.siteType} site(s) are available at Scusset Beach!`,
         ``,
-        `Date: Jul 29, 2026`,
+        `Date: Jun 10, 2026`,
         `Length of stay: ${CONFIG.lengthOfStay} nights`,
         ``,
         `Book now:`,
