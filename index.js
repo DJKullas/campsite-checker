@@ -1,4 +1,5 @@
 const puppeteer = require("puppeteer");
+const nodemailer = require("nodemailer");
 const fs = require("fs");
 const path = require("path");
 
@@ -7,6 +8,7 @@ const CONFIG = {
   arrivalDate: "06/10/2026",
   lengthOfStay: "2",
   siteType: "RV/TRAILER ELECTRIC",
+  emailTo: "dkoolj5@gmail.com",
   cooldownEnabled: false,
   cooldownMs: 60 * 60 * 1000,
 };
@@ -29,32 +31,27 @@ function recordNotification() {
   fs.writeFileSync(COOLDOWN_FILE, Date.now().toString());
 }
 
-async function createGitHubIssue(title, body) {
-  const token = process.env.GITHUB_TOKEN;
-  const repo = process.env.GITHUB_REPOSITORY;
+async function sendEmail(subject, body) {
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
 
-  if (!token || !repo) {
-    console.log("Not running in GitHub Actions, skipping issue creation.");
-    console.log(`Would create issue: ${title}`);
-    return;
+  if (!user || !pass) {
+    throw new Error("Missing env vars: GMAIL_USER, GMAIL_APP_PASSWORD");
   }
 
-  const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ title, body, labels: ["availability"] }),
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user, pass },
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`GitHub API error (${res.status}): ${err}`);
-  }
+  await transporter.sendMail({
+    from: user,
+    to: CONFIG.emailTo,
+    subject,
+    text: body,
+  });
 
-  const issue = await res.json();
-  console.log(`GitHub Issue created: ${issue.html_url}`);
+  console.log(`Email sent to ${CONFIG.emailTo}`);
 }
 
 async function checkAvailability() {
@@ -147,24 +144,21 @@ async function main() {
     const hasAvailability = result.typeCount > 0 || result.availableCount > 0;
 
     if (hasAvailability) {
-      const title = `CAMPSITE AVAILABLE - ${result.typeCount} ${CONFIG.siteType} site(s)`;
+      const subject = "CAMPSITE AVAILABLE - Scusset Beach";
       const body = [
-        `## Campsite Availability Found`,
+        `${result.typeCount} ${CONFIG.siteType} site(s) are available at Scusset Beach!`,
         ``,
-        `**${result.typeCount} ${CONFIG.siteType}** site(s) available at Scusset Beach!`,
+        `Date: ${CONFIG.arrivalDate}`,
+        `Length of stay: ${CONFIG.lengthOfStay} nights`,
         ``,
-        `| Detail | Value |`,
-        `|--------|-------|`,
-        `| Arrival Date | ${CONFIG.arrivalDate} |`,
-        `| Length of Stay | ${CONFIG.lengthOfStay} nights |`,
-        `| Available | ${result.availableCount} of ${result.totalCount} total |`,
-        ``,
-        `**[Book now](${CONFIG.url})**`,
+        `Book now:`,
+        CONFIG.url,
       ].join("\n");
 
-      console.log("AVAILABILITY FOUND! Creating GitHub Issue...");
-      await createGitHubIssue(title, body);
+      console.log("AVAILABILITY FOUND! Sending email...");
+      await sendEmail(subject, body);
       recordNotification();
+      console.log("Email sent. Done.");
     } else {
       console.log(
         `No ${CONFIG.siteType} sites available. Will check again next run.`
